@@ -10,7 +10,7 @@ import ErrorMessage from '@/app/ai_upscale/components/ErrorMessage';
 import AnimatedVideo from './components/AnimatedVideo';
 import { validateImageFile, readImageFile } from '@/app/ai_upscale/utils/imageProcessing';
 import { waitForPrediction } from '@/app/ai_upscale/utils/predictionPolling';
-import { logServiceUsage } from "@/utils/supabase";
+import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -23,6 +23,7 @@ export default function Animate() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [prediction, setPrediction] = useState(null);
+  const [serviceUsageId, setServiceUsageId] = useState(null);
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -58,6 +59,17 @@ export default function Animate() {
     setError(null);
 
     try {
+      // Log service usage immediately
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'animate',
+        inputImageUrl: preview,
+        prompt: prompt.trim()
+      });
+      
+      if (serviceUsage?.[0]?.id) {
+        setServiceUsageId(serviceUsage[0].id);
+      }
+
       const response = await fetch('/api/animate', {
         method: 'POST',
         headers: {
@@ -81,13 +93,13 @@ export default function Animate() {
         await waitForPrediction(data, setPrediction);
       }
 
-      // Log the service usage
-      await logServiceUsage({
-        serviceName: 'animate',
-        inputImageUrl: preview,
-        prompt: prompt.trim(),
-        outputImageUrl: data.output
-      });
+      // Update service usage with output URL
+      if (serviceUsageId && data.output) {
+        await updateServiceUsage({
+          id: serviceUsageId,
+          outputImageUrl: data.output
+        });
+      }
     } catch (err) {
       console.error('Animation error:', err);
       setError(err.message || 'An error occurred while animating');

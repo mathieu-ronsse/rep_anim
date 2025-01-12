@@ -1,34 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use Next.js environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+// Create a single supabase client for interacting with your database
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
-// Only create the client if we have the required configuration
-let supabase = null;
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-}
-
-export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null, outputImageUrl = null }) {
-  if (!supabase) {
-    console.warn('Supabase client not initialized - service usage logging skipped');
-    return null;
-  }
-
+export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null }) {
   try {
     const { data, error } = await supabase
       .from('service_usage')
       .insert([
         {
-          user_id: 'da59339e-68e1-4da8-a4ec-c3ea0caeb540', // Hardcoded user_id for now
+          user_id: 'a834f8de-dac0-4162-b5f7-3eacdcab7dc1', // Hardcoded user_id for now
           service_name: serviceName,
-          input_image_url: inputImageUrl,
-          prompt: prompt,
-          output_image_url: outputImageUrl,
-          tokens_deducted: 0, // Default value
-          created_at: new Date().toISOString()
+          input_image_url: inputImageUrl || null,
+          prompt: prompt || null,
+          tokens_deducted: 0
         }
       ])
       .select();
@@ -40,6 +28,28 @@ export async function logServiceUsage({ serviceName, inputImageUrl = null, promp
     return data;
   } catch (error) {
     console.error('Error logging service usage:', error);
+    return null;
+  }
+}
+
+export async function updateServiceUsage({ id, outputImageUrl }) {
+  try {
+    const { data, error } = await supabase
+      .from('service_usage')
+      .update({
+        output_image_url: outputImageUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Error updating service usage:', error);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error('Error updating service usage:', error);
     return null;
   }
 }

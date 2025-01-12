@@ -7,7 +7,7 @@ import PromptInput from "@/components/PromptInput";
 import LoadingButton from "@/components/LoadingButton";
 import GenerationOutput from "./components/GenerationOutput";
 import { useImageGeneration } from "./hooks/useImageGeneration";
-import { logServiceUsage } from "@/utils/supabase";
+import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -17,19 +17,32 @@ const breadcrumbItems = [
 export default function Generate() {
   const [model, setModel] = useState('sdxl');
   const [prompt, setPrompt] = useState('');
+  const [serviceUsageId, setServiceUsageId] = useState(null);
   const { prediction, error, isLoading, status, generate } = useImageGeneration();
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     
-    const result = await generate(prompt, model);
-    
-    // Log the service usage
-    await logServiceUsage({
+    // Log service usage immediately
+    const serviceUsage = await logServiceUsage({
       serviceName: 'generate',
-      prompt: prompt.trim(),
-      outputImageUrl: result?.output
+      prompt: prompt.trim()
     });
+    
+    if (serviceUsage?.[0]?.id) {
+      setServiceUsageId(serviceUsage[0].id);
+    }
+    
+    // Then generate the image
+    const result = await generate(prompt, model);
+
+    // Update service usage with output URL
+    if (serviceUsageId && result?.output) {
+      await updateServiceUsage({
+        id: serviceUsageId,
+        outputImageUrl: result.output
+      });
+    }
   };
 
   return (

@@ -14,6 +14,8 @@ export async function POST(request) {
   }
 
   try {
+    console.log("Upscale API: start.");
+
     const { imageUrl, scale = 4 } = await request.json();
 
     if (!imageUrl) {
@@ -33,6 +35,7 @@ export async function POST(request) {
     });
 
     if (prediction?.error) {
+      console.log("Prediction Error: " + JSON.stringify(prediction, null, 2));
       return NextResponse.json({ detail: prediction.error }, { status: 500 });
     }
 

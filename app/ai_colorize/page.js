@@ -9,7 +9,7 @@ import ColorizeButton from './components/ColorizeButton';
 import ErrorMessage from '@/app/ai_upscale/components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
-import { logServiceUsage } from "@/utils/supabase";
+import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -21,6 +21,7 @@ export default function Colorize() {
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [serviceUsageId, setServiceUsageId] = useState(null);
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -52,6 +53,16 @@ export default function Colorize() {
     setError(null);
 
     try {
+      // Log service usage immediately
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'colorize',
+        inputImageUrl: preview
+      });
+      
+      if (serviceUsage?.[0]?.id) {
+        setServiceUsageId(serviceUsage[0].id);
+      }
+
       const response = await fetch('/api/colorize', {
         method: 'POST',
         headers: {
@@ -70,12 +81,13 @@ export default function Colorize() {
       setPrediction(prediction);
       await waitForPrediction(prediction, setPrediction);
 
-      // Log the service usage
-      await logServiceUsage({
-        serviceName: 'colorize',
-        inputImageUrl: preview,
-        outputImageUrl: prediction.output
-      });
+      // Update service usage with output URL
+      if (serviceUsageId && prediction.output) {
+        await updateServiceUsage({
+          id: serviceUsageId,
+          outputImageUrl: prediction.output
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {

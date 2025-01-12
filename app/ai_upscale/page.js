@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Breadcrumb from "@/components/Breadcrumb";
 import ImageUploader from './components/ImageUploader';
 import ImagePreviewWithClear from './components/ImagePreviewWithClear';
@@ -10,7 +10,7 @@ import ScaleSlider from './components/ScaleSlider';
 import ErrorMessage from './components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
-import { logServiceUsage } from "@/utils/supabase";
+import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -23,6 +23,14 @@ export default function Upscale() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [scale, setScale] = useState(4);
+  const [serviceUsageId, setServiceUsageId] = useState(null);
+  var newServiceUsageId = null;
+
+  /*
+  useEffect(() => {
+    console.log('Updated Service Usage ID:', serviceUsageId);
+  }, [serviceUsageId]);
+  */
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -54,6 +62,23 @@ export default function Upscale() {
     setError(null);
 
     try {
+      // Log service usage immediately
+      console.log("Log ServiceUsage: start.");
+      
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'upscale',
+        inputImageUrl: preview
+      });
+
+      //console.log("Showing serviceUsage: " + JSON.stringify(serviceUsage, null, 2));
+
+      if (serviceUsage?.[0]?.id) {
+        newServiceUsageId = serviceUsage[0].id;
+        setServiceUsageId(serviceUsage[0].id);
+      }
+
+      console.log("Log ServiceUsage: completed, running API.");
+      
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
@@ -72,13 +97,17 @@ export default function Upscale() {
 
       setPrediction(prediction);
       await waitForPrediction(prediction, setPrediction);
-
-      // Log the service usage
-      await logServiceUsage({
-        serviceName: 'upscale',
-        inputImageUrl: preview,
-        outputImageUrl: prediction.output
-      });
+      
+      console.log("API completed, update ServiceUsage with ID " + newServiceUsageId);
+      // Update service usage with output URL
+      if (newServiceUsageId && prediction.output) {
+        await updateServiceUsage({
+          id: newServiceUsageId,
+          outputImageUrl: prediction.output
+        });
+        console.log("Update ServiceUsage: completed");
+      }
+        
     } catch (err) {
       setError(err.message);
     } finally {
