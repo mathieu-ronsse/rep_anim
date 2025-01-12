@@ -3,7 +3,7 @@ import Replicate from "replicate";
 import { MODEL_VERSIONS } from "@/app/ai_generate/config/models";
  
 const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
+  auth: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
 });
  
 const WEBHOOK_HOST = process.env.VERCEL_URL
@@ -11,9 +11,9 @@ const WEBHOOK_HOST = process.env.VERCEL_URL
   : process.env.NGROK_HOST;
  
 export async function POST(request) {
-  if (!process.env.REPLICATE_API_TOKEN) {
+  if (!process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN) {
     return NextResponse.json(
-      { detail: 'The REPLICATE_API_TOKEN environment variable is not set.' },
+      { detail: 'The NEXT_PUBLIC_REPLICATE_API_TOKEN environment variable is not set.' },
       { status: 500 }
     );
   }

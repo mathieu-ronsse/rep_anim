@@ -78,7 +78,9 @@ export default function Upscale() {
       }
 
       console.log("Log ServiceUsage: completed, running API.");
-      
+      console.log("Replicate API Token used: " + process.env.REPLICATE_API_TOKEN);
+      console.log("Replicate API Token used: " + process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
+
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
