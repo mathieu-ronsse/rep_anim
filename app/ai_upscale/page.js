@@ -10,6 +10,7 @@ import ScaleSlider from './components/ScaleSlider';
 import ErrorMessage from './components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
+import { logServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -71,6 +72,13 @@ export default function Upscale() {
 
       setPrediction(prediction);
       await waitForPrediction(prediction, setPrediction);
+
+      // Log the service usage
+      await logServiceUsage({
+        serviceName: 'upscale',
+        inputImageUrl: preview,
+        outputImageUrl: prediction.output
+      });
     } catch (err) {
       setError(err.message);
     } finally {

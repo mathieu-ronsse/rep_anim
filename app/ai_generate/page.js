@@ -7,6 +7,7 @@ import PromptInput from "@/components/PromptInput";
 import LoadingButton from "@/components/LoadingButton";
 import GenerationOutput from "./components/GenerationOutput";
 import { useImageGeneration } from "./hooks/useImageGeneration";
+import { logServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -20,7 +21,15 @@ export default function Generate() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    await generate(prompt, model);
+    
+    const result = await generate(prompt, model);
+    
+    // Log the service usage
+    await logServiceUsage({
+      serviceName: 'generate',
+      prompt: prompt.trim(),
+      outputImageUrl: result?.output
+    });
   };
 
   return (

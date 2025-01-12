@@ -9,6 +9,7 @@ import ColorizeButton from './components/ColorizeButton';
 import ErrorMessage from '@/app/ai_upscale/components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
+import { logServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -68,6 +69,13 @@ export default function Colorize() {
 
       setPrediction(prediction);
       await waitForPrediction(prediction, setPrediction);
+
+      // Log the service usage
+      await logServiceUsage({
+        serviceName: 'colorize',
+        inputImageUrl: preview,
+        outputImageUrl: prediction.output
+      });
     } catch (err) {
       setError(err.message);
     } finally {

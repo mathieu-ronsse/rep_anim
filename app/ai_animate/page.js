@@ -10,6 +10,7 @@ import ErrorMessage from '@/app/ai_upscale/components/ErrorMessage';
 import AnimatedVideo from './components/AnimatedVideo';
 import { validateImageFile, readImageFile } from '@/app/ai_upscale/utils/imageProcessing';
 import { waitForPrediction } from '@/app/ai_upscale/utils/predictionPolling';
+import { logServiceUsage } from "@/utils/supabase";
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -79,6 +80,14 @@ export default function Animate() {
       if (data.id) {
         await waitForPrediction(data, setPrediction);
       }
+
+      // Log the service usage
+      await logServiceUsage({
+        serviceName: 'animate',
+        inputImageUrl: preview,
+        prompt: prompt.trim(),
+        outputImageUrl: data.output
+      });
     } catch (err) {
       console.error('Animation error:', err);
       setError(err.message || 'An error occurred while animating');
