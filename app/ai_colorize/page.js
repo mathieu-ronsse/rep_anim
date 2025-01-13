@@ -77,10 +77,15 @@ export default function Colorize() {
       if (!response.ok) {
         throw new Error(prediction.detail);
       }
-
+      
       setPrediction(prediction);
+
+      console.log("setPrediction done, now await :" + JSON.stringify(prediction, null, 2));
+      
       await waitForPrediction(prediction, setPrediction);
 
+      console.log("waitForPrediction done :" + JSON.stringify(prediction, null, 2));
+      
       // Update service usage with output URL
       if (serviceUsageId && prediction.output) {
         await updateServiceUsage({

@@ -26,12 +26,6 @@ export default function Upscale() {
   const [serviceUsageId, setServiceUsageId] = useState(null);
   var newServiceUsageId = null;
 
-  /*
-  useEffect(() => {
-    console.log('Updated Service Usage ID:', serviceUsageId);
-  }, [serviceUsageId]);
-  */
-
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
     if (!validation.isValid) {
@@ -62,25 +56,6 @@ export default function Upscale() {
     setError(null);
 
     try {
-      // Log service usage immediately
-      console.log("Log ServiceUsage: start.");
-      
-      const serviceUsage = await logServiceUsage({
-        serviceName: 'upscale',
-        inputImageUrl: preview
-      });
-
-      //console.log("Showing serviceUsage: " + JSON.stringify(serviceUsage, null, 2));
-
-      if (serviceUsage?.[0]?.id) {
-        newServiceUsageId = serviceUsage[0].id;
-        setServiceUsageId(serviceUsage[0].id);
-      }
-
-      console.log("Log ServiceUsage: completed, running API.");
-      console.log("Replicate API Token used: " + process.env.REPLICATE_API_TOKEN);
-      console.log("Replicate API Token used: " + process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
-
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
@@ -92,24 +67,37 @@ export default function Upscale() {
         }),
       });
 
-      let prediction = await response.json();
+      let initialPrediction = await response.json();
       if (!response.ok) {
-        throw new Error(prediction.detail);
+        throw new Error(initialPrediction.detail);
+      }
+      
+      // Set initial prediction state
+      setPrediction(initialPrediction);
+
+      // Log Service Usage with Replicate ID
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'upscale',
+        inputImageUrl: preview,
+        replicateID: initialPrediction.id,
+      });
+
+      // Store ServiceUsageID in variable (for updating)
+      if (serviceUsage?.[0]?.id) {
+        newServiceUsageId = serviceUsage[0].id;
+        setServiceUsageId(serviceUsage[0].id);
       }
 
-      setPrediction(prediction);
-      await waitForPrediction(prediction, setPrediction);
+      // Wait for prediction and get final result
+      const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
       
-      console.log("API completed, update ServiceUsage with ID " + newServiceUsageId);
-      // Update service usage with output URL
-      if (newServiceUsageId && prediction.output) {
+      // Update Service Usage with the final prediction output
+      if (newServiceUsageId && finalPrediction.output) {
         await updateServiceUsage({
           id: newServiceUsageId,
-          outputImageUrl: prediction.output
+          outputImageUrl: finalPrediction.output,
         });
-        console.log("Update ServiceUsage: completed");
       }
-        
     } catch (err) {
       setError(err.message);
     } finally {

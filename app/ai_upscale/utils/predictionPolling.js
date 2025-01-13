@@ -34,5 +34,5 @@ export const waitForPrediction = async (prediction, onUpdate) => {
     throw new Error('Prediction failed');
   }
   
-  return currentPrediction;
+  return currentPrediction; // Return the final prediction
 };

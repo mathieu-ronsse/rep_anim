@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null }) {
+export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null, replicateID = null }) {
   try {
     const { data, error } = await supabase
       .from('service_usage')
@@ -16,7 +16,8 @@ export async function logServiceUsage({ serviceName, inputImageUrl = null, promp
           service_name: serviceName,
           input_image_url: inputImageUrl || null,
           prompt: prompt || null,
-          tokens_deducted: 0
+          tokens_deducted: 0,
+          replicate_id: replicateID || null,
         }
       ])
       .select();
