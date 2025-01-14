@@ -11,6 +11,7 @@ import ErrorMessage from './components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
 import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
+import { uploadToStorage } from './utils/storageUtils';
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -75,10 +76,16 @@ export default function Upscale() {
       // Set initial prediction state
       setPrediction(initialPrediction);
 
-      // Log Service Usage with Replicate ID
+      // Upload input image to Supabase Storage
+      const inputFilename = `${initialPrediction.id}_input_${Date.now()}.png`;
+      //console.log("Trying to save input image as " + inputFilename);
+      const inputStorageUrl = await uploadToStorage(preview, inputFilename);
+      //console.log("Input image saved to storage.");
+      
+      // Log Service Usage with Replicate ID and stored input image URL
       const serviceUsage = await logServiceUsage({
         serviceName: 'upscale',
-        inputImageUrl: preview,
+        inputImageUrl: inputStorageUrl,
         replicateID: initialPrediction.id,
       });
 
@@ -91,12 +98,20 @@ export default function Upscale() {
       // Wait for prediction and get final result
       const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
       
-      // Update Service Usage with the final prediction output
-      if (newServiceUsageId && finalPrediction.output) {
-        await updateServiceUsage({
-          id: newServiceUsageId,
-          outputImageUrl: finalPrediction.output,
-        });
+      // Upload output image to Supabase Storage
+      if (finalPrediction.output) {
+        const outputFilename = `${finalPrediction.id}_output_${Date.now()}.png`;
+        //console.log("Trying to save output image as " + outputFilename);
+        const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
+        //console.log("Output image saved to storage.");
+        
+        // Update Service Usage with the stored output image URL
+        if (newServiceUsageId) {
+          await updateServiceUsage({
+            id: newServiceUsageId,
+            outputImageUrl: outputStorageUrl,
+          });
+        }
       }
     } catch (err) {
       setError(err.message);
