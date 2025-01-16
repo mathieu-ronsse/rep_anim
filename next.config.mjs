@@ -1,6 +1,5 @@
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["geist"],
   images: {
     remotePatterns: [
       {
