@@ -1,6 +1,8 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/utils/supabase';
+import { getCurrentUser, supabase } from '@/utils/supabase';
 
 export default function AuthCheck({ children }) {
   const [loading, setLoading] = useState(true);
@@ -33,8 +35,19 @@ export default function AuthCheck({ children }) {
 
     checkAuth();
 
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!mounted) return;
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.push('/login');
+      }
+    });
+
     return () => {
       mounted = false;
+      subscription?.unsubscribe();
     };
   }, [router]);
 

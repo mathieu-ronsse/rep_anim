@@ -25,7 +25,6 @@ export default function Upscale() {
   const [isLoading, setIsLoading] = useState(false);
   const [scale, setScale] = useState(4);
   const [serviceUsageId, setServiceUsageId] = useState(null);
-  var newServiceUsageId = null;
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -55,8 +54,35 @@ export default function Upscale() {
     
     setIsLoading(true);
     setError(null);
+    let storedInputUrl = null;
+    let newServiceUsageId = null;
 
     try {
+      console.log('Starting upscale process...');
+
+      // Upload input image to Supabase Storage
+      const inputFilename = `upscale_input_${Date.now()}.png`;
+      console.log('Uploading input image to storage:', inputFilename);
+      storedInputUrl = await uploadToStorage(preview, inputFilename);
+      console.log('Input image uploaded successfully:', storedInputUrl);
+
+      // Log initial service usage
+      console.log('Logging initial service usage...');
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'upscale',
+        inputImageUrl: storedInputUrl
+      });
+
+      if (serviceUsage?.[0]?.id) {
+        newServiceUsageId = serviceUsage[0].id;
+        setServiceUsageId(serviceUsage[0].id);
+        console.log('Service usage logged successfully:', newServiceUsageId);
+      } else {
+        console.error('Failed to get service usage ID');
+      }
+
+      // Call Replicate API
+      console.log('Calling Replicate API...');
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
@@ -73,47 +99,33 @@ export default function Upscale() {
         throw new Error(initialPrediction.detail);
       }
       
-      // Set initial prediction state
+      console.log('Initial prediction received:', initialPrediction);
       setPrediction(initialPrediction);
 
-      // Upload input image to Supabase Storage
-      const inputFilename = `${initialPrediction.id}_input_${Date.now()}.png`;
-      //console.log("Trying to save input image as " + inputFilename);
-      const inputStorageUrl = await uploadToStorage(preview, inputFilename);
-      //console.log("Input image saved to storage.");
-      
-      // Log Service Usage with Replicate ID and stored input image URL
-      const serviceUsage = await logServiceUsage({
-        serviceName: 'upscale',
-        inputImageUrl: inputStorageUrl,
-        replicateID: initialPrediction.id,
-      });
-
-      // Store ServiceUsageID in variable (for updating)
-      if (serviceUsage?.[0]?.id) {
-        newServiceUsageId = serviceUsage[0].id;
-        setServiceUsageId(serviceUsage[0].id);
-      }
-
       // Wait for prediction and get final result
+      console.log('Waiting for prediction completion...');
       const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
+      console.log('Final prediction received:', finalPrediction);
       
       // Upload output image to Supabase Storage
       if (finalPrediction.output) {
-        const outputFilename = `${finalPrediction.id}_output_${Date.now()}.png`;
-        //console.log("Trying to save output image as " + outputFilename);
+        const outputFilename = `upscale_output_${Date.now()}.png`;
+        console.log('Uploading output image to storage:', outputFilename);
         const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
-        //console.log("Output image saved to storage.");
+        console.log('Output image uploaded successfully:', outputStorageUrl);
         
         // Update Service Usage with the stored output image URL
         if (newServiceUsageId) {
+          console.log('Updating service usage with output URL...');
           await updateServiceUsage({
             id: newServiceUsageId,
             outputImageUrl: outputStorageUrl,
           });
+          console.log('Service usage updated successfully');
         }
       }
     } catch (err) {
+      console.error('Upscale error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
