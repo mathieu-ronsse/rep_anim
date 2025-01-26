@@ -24,6 +24,7 @@ const services = [
     description: 'add vibrant colors to black and white images',
     available: true
   },
+  /*
   { 
     name: 'Extract',
     path: '#',
@@ -38,6 +39,7 @@ const services = [
     description: 'extend images beyond their boundaries',
     available: false
   },
+  */
   { 
     name: 'Animate',
     path: '/ai_animate',
@@ -50,8 +52,8 @@ const services = [
 export default function Home() {
   return (
     <div className="container max-w-6xl mx-auto px-4 py-12">
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text leading-normal">
           Transform your images with AI
         </h1>
       </div>

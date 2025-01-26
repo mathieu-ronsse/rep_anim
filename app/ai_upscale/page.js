@@ -11,7 +11,7 @@ import ErrorMessage from './components/ErrorMessage';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
 import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
-import { uploadToStorage } from './utils/storageUtils';
+import { uploadToStorage } from '@/utils/storageUtils';
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -54,35 +54,13 @@ export default function Upscale() {
     
     setIsLoading(true);
     setError(null);
-    let storedInputUrl = null;
     let newServiceUsageId = null;
 
     try {
       console.log('Starting upscale process...');
 
-      // Upload input image to Supabase Storage
-      const inputFilename = `upscale_input_${Date.now()}.png`;
-      console.log('Uploading input image to storage:', inputFilename);
-      storedInputUrl = await uploadToStorage(preview, inputFilename);
-      console.log('Input image uploaded successfully:', storedInputUrl);
-
-      // Log initial service usage
-      console.log('Logging initial service usage...');
-      const serviceUsage = await logServiceUsage({
-        serviceName: 'upscale',
-        inputImageUrl: storedInputUrl
-      });
-
-      if (serviceUsage?.[0]?.id) {
-        newServiceUsageId = serviceUsage[0].id;
-        setServiceUsageId(serviceUsage[0].id);
-        console.log('Service usage logged successfully:', newServiceUsageId);
-      } else {
-        console.error('Failed to get service usage ID');
-      }
-
       // Call Replicate API
-      console.log('Calling Replicate API...');
+      //console.log('Calling Replicate upscale API...');
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
@@ -99,33 +77,54 @@ export default function Upscale() {
         throw new Error(initialPrediction.detail);
       }
       
-      console.log('Initial prediction received:', initialPrediction);
+      //console.log('Initial prediction received:', initialPrediction);
       setPrediction(initialPrediction);
 
+      // Upload input image to Supabase Storage
+      const inputFilename = `${initialPrediction.id}_in_${Date.now()}.png`;
+      //console.log('Uploading input image to storage:', inputFilename);
+      const inputStorageUrl = await uploadToStorage(preview, inputFilename);
+      //console.log('Input image uploaded successfully:', storedInputUrl);
+
+      //console.log('Logging initial service usage...');
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'upscale',
+        inputImageUrl: inputStorageUrl,
+        replicateID: initialPrediction.id,
+      });
+
+      if (serviceUsage?.[0]?.id) {
+        newServiceUsageId = serviceUsage[0].id;
+        setServiceUsageId(serviceUsage[0].id);
+        //console.log('Service usage logged successfully:', newServiceUsageId);
+      } else {
+        console.error('Failed to get service usage ID');
+      }
+
       // Wait for prediction and get final result
-      console.log('Waiting for prediction completion...');
+      //console.log('Waiting for prediction completion...');
       const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
-      console.log('Final prediction received:', finalPrediction);
+      //console.log('Final prediction received:', finalPrediction);
       
       // Upload output image to Supabase Storage
       if (finalPrediction.output) {
-        const outputFilename = `upscale_output_${Date.now()}.png`;
-        console.log('Uploading output image to storage:', outputFilename);
+        const outputFilename = `${finalPrediction.id}_out_${Date.now()}.png`;
+        //console.log('Uploading output image to storage:', outputFilename);
         const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
-        console.log('Output image uploaded successfully:', outputStorageUrl);
+        //console.log('Output image uploaded successfully:', outputStorageUrl);
         
         // Update Service Usage with the stored output image URL
         if (newServiceUsageId) {
-          console.log('Updating service usage with output URL...');
+          //console.log('Updating service usage with output URL...');
           await updateServiceUsage({
             id: newServiceUsageId,
             outputImageUrl: outputStorageUrl,
           });
-          console.log('Service usage updated successfully');
+          //console.log('Service usage updated successfully');
         }
       }
     } catch (err) {
-      console.error('Upscale error:', err);
+      //console.error('Upscale error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);

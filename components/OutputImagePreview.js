@@ -8,11 +8,16 @@ export default function OutputImagePreview({ src, alt = "Output Image" }) {
   }
   
   const [aspectRatio, setAspectRatio] = useState(1);
+  const [imageDimensions, setImageDimensions] = useState({ width: 704, height: 704 });
 
   const handleImageLoad = (e) => {
     if (e.target) {
       const { naturalWidth, naturalHeight } = e.target;
-      setAspectRatio(naturalHeight / naturalWidth);
+      // If the natural width is smaller than the max width (704), use the natural width
+      const calculatedWidth = Math.min(naturalWidth, 704);
+      const calculatedHeight = (calculatedWidth * naturalHeight) / naturalWidth;
+      setImageDimensions({ width: calculatedWidth, height: calculatedHeight });
+      //setAspectRatio(naturalHeight / naturalWidth);
     }
   };
 
@@ -33,20 +38,28 @@ export default function OutputImagePreview({ src, alt = "Output Image" }) {
     }
   };
 
-  const containerHeight = Math.min(704, 704 * aspectRatio);
+  //const containerHeight = Math.min(704, 704 * aspectRatio);
 
   return (
-    <div className="max-w-[704px] mx-auto">
+    // <div className="max-w-[704px] mx-auto">
+    <div className="mx-auto" style={{ maxWidth: `${imageDimensions.width}px` }}>
       <div 
-        className="relative w-full bg-gray-800 rounded-lg overflow-hidden"
-        style={{ height: `${containerHeight}px` }}
+        className="relative bg-gray-800 rounded-lg overflow-hidden" //w-full 
+        //style={{height: `${Math.min(containerHeight, 704)}px` }}
+        //style={{ height: `${containerHeight}px` }}
+        style={{
+          width: `${imageDimensions.width}px`,
+          //height: `${imageDimensions.height}px`,
+        }}
       >
         <Image
           src={src}
           alt={alt}
-          fill
+          //fill
           className="object-contain"
-          sizes="(max-width: 768px) 100vw, 704px"
+          width={imageDimensions.width}
+          height={imageDimensions.height}
+          //sizes="(max-width: 768px) 100vw, 704px"
           priority
           unoptimized
           onLoadingComplete={handleImageLoad}

@@ -14,9 +14,9 @@ export default function Login() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Login page auth state changed:', event);
+      //console.log('Login page auth state changed:', event);
       if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in, redirecting to home...');
+        //console.log('User signed in, redirecting to home...');
         router.push('/');
         router.refresh();
       }
@@ -31,14 +31,14 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    console.log('Attempting login with email:', email);
+    //console.log('Attempting login with email:', email);
 
     try {
       if (!email || !password) {
         throw new Error('Please enter both email and password');
       }
 
-      console.log('Calling signIn function...');
+      //console.log('Calling signIn function...');
       await signIn(email, password);
       // The redirect will be handled by the auth state change listener
     } catch (err) {
@@ -56,67 +56,83 @@ export default function Login() {
             Sign in to your account
           </h2>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+
+        <form className="mt-8 space-y-6 flex items-center justify-center" onSubmit={handleSubmit}>
           {error && (
             <div className="bg-red-500/10 text-red-500 p-3 rounded text-sm">
               {error}
             </div>
           )}
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
-                placeholder="Enter your email"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
-                placeholder="Enter your password"
-              />
-            </div>
-          </div>
 
-          <div className="flex flex-col space-y-4">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          <div id="loginFull" className="flex flex-col items-center space-y-6 w-full max-w-md">
+            <div
+              id="loginInput"
+              className="space-y-4 w-full"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </button>
-            
-            <Link 
-              href="/register" 
-              className="text-center text-sm text-blue-500 hover:text-blue-400"
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
+                  placeholder="Enter your email"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
+                  placeholder="Enter your password"
+                />
+              </div>
+            </div>
+
+            {/* LoginButtons */}
+            <div
+              id="loginButtons"
+              className="space-y-4 w-full flex flex-col items-center"
             >
-              No account? Register here
-            </Link>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? "Signing in..." : "Sign in"}
+              </button>
+
+              <Link
+                href="/register"
+                className="block text-center text-sm text-blue-500 hover:text-blue-400"
+              >
+                No account? Register here
+              </Link>
+            </div>
           </div>
         </form>
       </div>
     </div>
+
   );
 }

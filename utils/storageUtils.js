@@ -11,9 +11,10 @@ export async function uploadToStorage(url, filename) {
     }
     
     const blob = await response.blob();
-    console.log('Image fetched successfully, size:', blob.size);
+    //console.log('Image fetched successfully, size:', blob.size);
 
     // Upload to Supabase Storage
+    console.log('Upload image to storage');
     const { data, error } = await supabase.storage
       .from('images')
       .upload(filename, blob, {

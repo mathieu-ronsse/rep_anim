@@ -1,48 +1,87 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Breadcrumb from "@/components/Breadcrumb";
 import ModelSelector from "@/components/ModelSelector";
 import PromptInput from "@/components/PromptInput";
 import LoadingButton from "@/components/LoadingButton";
 import GenerationOutput from "./components/GenerationOutput";
 import { useImageGeneration } from "./hooks/useImageGeneration";
+import ErrorMessage from '@/components/ErrorMessage';
 import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
+import { uploadToStorage } from '@/utils/storageUtils';
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
   { icon: '🪄', label: 'Generate' }
 ];
 
-export default function Generate() {
+export default function AIGenerate() {
+  
   const [model, setModel] = useState('sdxl');
   const [prompt, setPrompt] = useState('');
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [serviceUsageId, setServiceUsageId] = useState(null);
-  const { prediction, error, isLoading, status, generate } = useImageGeneration();
+  const { prediction, myError, myIsLoading, status, generate } = useImageGeneration();
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    
-    // Log service usage immediately
-    const serviceUsage = await logServiceUsage({
-      serviceName: 'generate',
-      prompt: prompt.trim()
-    });
-    
-    if (serviceUsage?.[0]?.id) {
-      setServiceUsageId(serviceUsage[0].id);
-    }
-    
-    // Then generate the image
-    const result = await generate(prompt, model);
 
-    // Update service usage with output URL
-    if (serviceUsageId && result?.output) {
-      await updateServiceUsage({
-        id: serviceUsageId,
-        outputImageUrl: result.output
-      });
-    }
+    setIsLoading(true); 
+    setError(null);   
+    let newServiceUsageId = null;
+
+    try{
+      console.log('Starting generate process...');
+
+      // Call generate API
+      //console.log('Calling Replicate generation API...');
+      const result = await generate(prompt, model);
+      console.log('Generation result: ', JSON.stringify(result, null, 2));
+      console.log('Generation result.prediction: ', JSON.stringify(result, null, 2));
+
+      // console.log('Logging initial service usage...');
+      // const serviceUsage = await logServiceUsage({
+      //   serviceName: 'generate',
+      //   prompt: prompt.trim(),
+      //   replicateID: result?.prediction.id,
+      //   //replicateID: result?.replicateID,
+      // });
+      
+      // if (serviceUsage?.[0]?.id) {
+      //   newServiceUsageId = serviceUsage[0].id;
+      //   setServiceUsageId(serviceUsage[0].id);
+      //   console.log('Service usage logged successfully:', newServiceUsageId);
+      // } else {
+      //   console.error('Failed to get service usage ID');
+      // }
+
+      // const finalPrediction = result?.prediction;
+      // console.log('Final prediction received:', finalPrediction);
+
+      // // Update service usage with output URL
+      // //if (serviceUsageId && result?.output) {
+      // if (serviceUsageId && finalPrediction.output) {
+        
+      //   const outputFilename = `out_generate_${Date.now()}.png`;
+      //   console.log('Uploading output image to storage:', outputFilename);
+      //   const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
+      //   console.log('Output image uploaded successfully:', outputStorageUrl);
+
+      //   await updateServiceUsage({
+      //     id: serviceUsageId,
+      //     outputImageUrl: outputFilename 
+      //     //outputImageUrl: result.output
+      //   });
+      // }
+      } catch (err) {
+        console.error('Generate error:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    
   };
 
   return (
@@ -66,11 +105,13 @@ export default function Generate() {
         </LoadingButton>
       </form>
 
-      {error && (
+      <ErrorMessage message={error} />
+
+      {/* {error && (
         <div className="bg-red-500/10 text-red-500 rounded-lg p-4 mt-6">
           {error}
         </div>
-      )}
+      )} */}
 
       <GenerationOutput 
         prediction={prediction}

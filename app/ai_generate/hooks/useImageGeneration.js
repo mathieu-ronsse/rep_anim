@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { handleFluxModel, handleSdxlModel } from '../utils/modelUtils';
+import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 
 export function useImageGeneration() {
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState(null);
+  const [serviceUsageId, setServiceUsageId] = useState(null);
 
   const generate = async (prompt, modelVersion) => {
     if (!prompt.trim()) {
@@ -17,6 +19,7 @@ export function useImageGeneration() {
     setError(null);
     setPrediction(null);
     setStatus('starting');
+    let newServiceUsageId = null;
 
     try {
       console.log(`Starting generation with model: ${modelVersion}`);
@@ -32,13 +35,14 @@ export function useImageGeneration() {
         }),
       });
       
-      const result = await response.json();
+      let initialPrediction = await response.json();
       
       if (!response.ok) {
-        throw new Error(result.detail || 'Failed to generate image');
+        throw new Error(initialPrediction.detail || 'Failed to generate image');
       }
+      //console.log('useImageGeneration > generate > initialPrediction: ', JSON.stringify(initialPrediction, null, 2));
 
-      console.log(`Generation response received for ${modelVersion}:`, result);
+      setPrediction(initialPrediction);
 
       const handlers = {
         setStatus,
@@ -46,11 +50,26 @@ export function useImageGeneration() {
         setError
       };
 
-      if (modelVersion === 'flux') {
-        await handleFluxModel(result, handlers);
+      //console.log('Logging initial service usage with replicateID:', initialPrediction.id);
+      const serviceUsage = await logServiceUsage({
+        serviceName: 'generate',
+        prompt: prompt.trim(),
+        replicateID: initialPrediction.id,
+      });
+
+      if (serviceUsage?.[0]?.id) {
+        newServiceUsageId = serviceUsage[0].id;
+        setServiceUsageId(serviceUsage[0].id);
       } else {
-        await handleSdxlModel(result, handlers);
+        console.error('Failed to get service usage ID');
       }
+
+      if (modelVersion === 'flux') {
+        await handleFluxModel(initialPrediction, handlers,newServiceUsageId);
+      } else {
+        await handleSdxlModel(initialPrediction, handlers,newServiceUsageId);
+      }
+
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.message);
@@ -59,6 +78,7 @@ export function useImageGeneration() {
     } finally {
       setIsLoading(false);
     }
+
   };
 
   return {

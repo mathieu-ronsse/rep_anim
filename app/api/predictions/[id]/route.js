@@ -7,7 +7,8 @@ const replicate = new Replicate({
  
 export async function GET(request, { params }) {
   try {
-    const id = await params.id;
+    //const id = await params.id;
+    const id = params.id;
     const prediction = await replicate.predictions.get(id);
  
     if (prediction?.error) {

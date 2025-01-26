@@ -6,40 +6,37 @@ import { useEffect, useState } from 'react';
 
 const plans = [
   {
-    name: 'Starter',
-    credits: 100,
-    price: 10,
+    name: 'Small',
+    credits: 50,
+    price: 6,
     features: [
-      'Access to all AI tools',
-      '100 credits',
-      'Valid for 30 days',
-      'Email support'
+      '= 50 generations',
+      '= 50 upscales',
+      '= 25 colorizations',
+      '= 1 animation'
     ]
   },
   {
-    name: 'Pro',
-    credits: 500,
-    price: 40,
+    name: 'Medium',
+    credits: 150,
+    price: 16,
     popular: true,
     features: [
-      'Access to all AI tools',
-      '500 credits',
-      'Valid for 30 days',
-      'Priority support',
-      'Bulk processing'
+      '= 150 generations',
+      '= 150 upscales',
+      '= 75 colorizations',
+      '= 3 animations'
     ]
   },
   {
-    name: 'Enterprise',
-    credits: 2000,
-    price: 140,
+    name: 'Large',
+    credits: 300,
+    price: 30,
     features: [
-      'Access to all AI tools',
-      '2000 credits',
-      'Valid for 30 days',
-      'Premium support',
-      'Bulk processing',
-      'API access'
+      '= 300 generations',
+      '= 300 upscales',
+      '= 150 colorizations',
+      '= 6 animations'
     ]
   }
 ];
@@ -70,15 +67,16 @@ export default function Pricing() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
         <p className="text-xl text-gray-400">
-          Get the credits you need to power your AI transformations
+          Get the credits you need to power your AI transformations.<br/>
+          Purchased credits are valid for 1 year.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {plans.map((plan) => (
           <div
             key={plan.name}
-            className={`relative bg-gray-800 rounded-lg p-8 ${
+            className={`relative bg-gray-800 rounded-lg p-4 ${
               plan.popular ? 'ring-2 ring-blue-500' : ''
             }`}
           >
@@ -96,7 +94,7 @@ export default function Pricing() {
 
             <ul className="space-y-4 mb-8">
               {plan.features.map((feature) => (
-                <li key={feature} className="flex items-center">
+                <li key={feature} className="flex items-center text-lg">
                   <svg
                     className="h-5 w-5 text-blue-500 mr-2"
                     fill="none"

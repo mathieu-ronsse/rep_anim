@@ -61,6 +61,14 @@ export async function signIn(email, password) {
 
 export async function signOut() {
   console.log('Attempting sign out');
+
+  const currentSession = supabase.auth.getSession();
+  if (!currentSession) {
+    console.log('No active session found');
+  // } else {
+  //   console.log('Active session found:', currentSession);
+  }
+
   const { error } = await supabase.auth.signOut();
   if (error) {
     console.error('Sign out error:', error);

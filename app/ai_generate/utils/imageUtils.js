@@ -22,6 +22,6 @@ export const getValidImageUrl = (prediction) => {
     }
   }
   
-  console.log('Unhandled prediction format:', prediction);
+  //console.log('Unhandled prediction format:', prediction);
   return null;
 };

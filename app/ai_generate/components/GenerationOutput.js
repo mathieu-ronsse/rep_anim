@@ -5,13 +5,13 @@ export default function GenerationOutput({ prediction, status }) {
   if (!prediction) return null;
 
   //console.log('prediction:', prediction);
-  console.log('GenerationOutput: Full prediction object:', JSON.stringify(prediction, null, 2));
+  //console.log('GenerationOutput: Full prediction object:', JSON.stringify(prediction, null, 2));
 
   const imageUrl = getValidImageUrl(prediction);
   
   // Only render if we have a valid image URL
   if (!imageUrl) {
-    console.log('No valid image URL found in prediction:', prediction);
+    //console.log('No valid image URL found in prediction:', prediction);
     return null;
   }
 
