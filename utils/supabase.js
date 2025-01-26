@@ -7,7 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables');
 }
 
-const supabase = createClient(
+export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
@@ -21,7 +21,6 @@ const supabase = createClient(
 );
 
 export async function signUp(email, password) {
-  console.log('Attempting signup for email:', email);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -30,17 +29,11 @@ export async function signUp(email, password) {
     }
   });
   
-  if (error) {
-    console.error('Signup error:', error);
-    throw error;
-  }
-  console.log('Signup successful:', data);
+  if (error) throw error;
   return data;
 }
 
 export async function signIn(email, password) {
-  console.log('Attempting signin for email:', email);
-  
   if (!email || !password) {
     throw new Error('Email and password are required');
   }
@@ -50,84 +43,77 @@ export async function signIn(email, password) {
     password
   });
   
-  if (error) {
-    console.error('Sign in error:', error);
-    throw error;
-  }
-
-  console.log('Sign in successful, session:', data.session);
+  if (error) throw error;
   return data;
 }
 
 export async function signOut() {
-  console.log('Attempting sign out');
-
-  const currentSession = supabase.auth.getSession();
-  if (!currentSession) {
-    console.log('No active session found');
-  // } else {
-  //   console.log('Active session found:', currentSession);
-  }
-
   const { error } = await supabase.auth.signOut();
-  if (error) {
-    console.error('Sign out error:', error);
-    throw error;
-  }
-  console.log('Sign out successful');
+  if (error) throw error;
 }
 
 export async function getCurrentUser() {
-  console.log('Getting current user...');
   try {
-    // First check if we have a session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // First, check if we have a session in localStorage
+    let session = null;
     
-    if (sessionError) {
-      console.error('Session error:', sessionError);
+    try {
+      // Add timeout to getSession call
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
+      );
+
+      const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+      session = data.session;
+    } catch (sessionError) {
+      console.warn('Session fetch error:', sessionError);
       return null;
     }
 
-    console.log('Session:', session);
-
+    // If no session, return null immediately
     if (!session?.user) {
-      console.log('No active session found');
       return null;
     }
 
     try {
-      const { data: profile, error: profileError } = await supabase
+      // Get user profile with timeout
+      const profilePromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', session.user.id)
         .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+      );
+
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]);
 
       if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        // Return user without profile instead of failing completely
+        console.warn('Profile fetch error:', profileError);
         return {
           ...session.user,
           profile: null
         };
       }
 
-      const userData = {
+      return {
         ...session.user,
         profile: profile || null
       };
-      
-      console.log('Returning user data:', userData);
-      return userData;
     } catch (profileError) {
-      console.error('Profile fetch error:', profileError);
-      // Return user without profile instead of failing completely
+      console.warn('Profile fetch error:', profileError);
       return {
         ...session.user,
         profile: null
       };
     }
   } catch (error) {
-    console.error('Error in getCurrentUser:', error);
+    console.warn('Error in getCurrentUser:', error);
     return null;
   }
 }
@@ -135,47 +121,35 @@ export async function getCurrentUser() {
 // Hardcoded user ID for anonymous usage
 const ANONYMOUS_USER_ID = 'a834f8de-dac0-4162-b5f7-3eacdcab7dc1';
 
-export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null, replicateID = null }) {
+export async function logServiceUsage({ serviceName, inputImageUrl = null, prompt = null, replicateID = null, tokensDeducted = 1 }) {
   try {
-    console.log('Logging service usage...');
-    
-    // Get current user or use anonymous ID
     const user = await getCurrentUser();
     const userId = user?.id || ANONYMOUS_USER_ID;
 
-    const { data, error } = await supabase
-      .from('service_usage')
-      .insert([
-        {
-          user_id: userId,
-          service_name: serviceName,
-          input_image_url: inputImageUrl,
-          prompt: prompt,
-          tokens_deducted: 1,
-          replicate_id: replicateID
-        }
-      ])
-      .select();
+    // Start a Supabase transaction using RPC
+    const { data: result, error: rpcError } = await supabase.rpc('log_service_usage_and_deduct_tokens', {
+      p_user_id: userId,
+      p_service_name: serviceName,
+      p_input_image_url: inputImageUrl,
+      p_prompt: prompt,
+      p_tokens_deducted: tokensDeducted,
+      p_replicate_id: replicateID
+    });
 
-    if (error) {
-      console.error('Error logging service usage:', error);
-      // Don't throw error for service usage logging
-      return null;
+    if (rpcError) {
+      console.error('Error in logServiceUsage RPC:', rpcError);
+      throw rpcError;
     }
 
-    console.log('Service usage logged successfully:', data);
-    return data;
+    return result;
   } catch (error) {
     console.error('Error in logServiceUsage:', error);
-    // Don't throw error for service usage logging
     return null;
   }
 }
 
 export async function updateServiceUsage({ id, outputImageUrl }) {
   try {
-    console.log('Updating service usage:', { id, outputImageUrl });
-    
     const { data, error } = await supabase
       .from('service_usage')
       .update({
@@ -187,17 +161,12 @@ export async function updateServiceUsage({ id, outputImageUrl }) {
 
     if (error) {
       console.error('Error updating service usage:', error);
-      // Don't throw error for service usage updates
       return null;
     }
 
-    console.log('Service usage updated successfully:', data);
     return data;
   } catch (error) {
     console.error('Error in updateServiceUsage:', error);
-    // Don't throw error for service usage updates
     return null;
   }
 }
-
-export { supabase };

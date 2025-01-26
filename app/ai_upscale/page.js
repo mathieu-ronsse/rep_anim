@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Breadcrumb from "@/components/Breadcrumb";
 import ImageUploader from './components/ImageUploader';
 import ImagePreviewWithClear from './components/ImagePreviewWithClear';
 import UpscaledImage from './components/UpscaledImage';
 import UpscaleButton from './components/UpscaleButton';
 import ScaleSlider from './components/ScaleSlider';
-import ErrorMessage from './components/ErrorMessage';
+import ErrorMessage from '@/components/ErrorMessage';
+import TokenMessage from '@/components/TokenMessage';
+import { useTokenCheck } from '@/hooks/useTokenCheck';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
 import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 import { uploadToStorage } from '@/utils/storageUtils';
+
+const REQUIRED_TOKENS = 10; // Upscale requires 1 token
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -25,6 +30,8 @@ export default function Upscale() {
   const [isLoading, setIsLoading] = useState(false);
   const [scale, setScale] = useState(4);
   const [serviceUsageId, setServiceUsageId] = useState(null);
+  const { checkTokens, showMessage, message, setShowMessage } = useTokenCheck();
+  const router = useRouter();
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -47,20 +54,24 @@ export default function Upscale() {
     setPreview(null);
     setPrediction(null);
     setError(null);
+    setShowMessage(false);
   };
 
   const handleUpscale = async () => {
     if (!preview) return;
     
-    setIsLoading(true);
-    setError(null);
-    let newServiceUsageId = null;
-
     try {
-      console.log('Starting upscale process...');
+      // Check tokens first
+      const canProceed = await checkTokens(REQUIRED_TOKENS);
+      console.log("Start service : canProceed = ", canProceed);
+      if (!canProceed) {
+        return;
+      }
 
-      // Call Replicate API
-      //console.log('Calling Replicate upscale API...');
+      setIsLoading(true);
+      setError(null);
+      let newServiceUsageId = null;
+
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: {
@@ -72,59 +83,44 @@ export default function Upscale() {
         }),
       });
 
-      let initialPrediction = await response.json();
       if (!response.ok) {
-        throw new Error(initialPrediction.detail);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to upscale image');
       }
-      
-      //console.log('Initial prediction received:', initialPrediction);
+
+      let initialPrediction = await response.json();
       setPrediction(initialPrediction);
 
-      // Upload input image to Supabase Storage
       const inputFilename = `${initialPrediction.id}_in_${Date.now()}.png`;
-      //console.log('Uploading input image to storage:', inputFilename);
       const inputStorageUrl = await uploadToStorage(preview, inputFilename);
-      //console.log('Input image uploaded successfully:', storedInputUrl);
 
-      //console.log('Logging initial service usage...');
       const serviceUsage = await logServiceUsage({
         serviceName: 'upscale',
         inputImageUrl: inputStorageUrl,
         replicateID: initialPrediction.id,
+        tokensDeducted: REQUIRED_TOKENS,
       });
 
       if (serviceUsage?.[0]?.id) {
         newServiceUsageId = serviceUsage[0].id;
         setServiceUsageId(serviceUsage[0].id);
-        //console.log('Service usage logged successfully:', newServiceUsageId);
-      } else {
-        console.error('Failed to get service usage ID');
       }
 
-      // Wait for prediction and get final result
-      //console.log('Waiting for prediction completion...');
       const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
-      //console.log('Final prediction received:', finalPrediction);
       
-      // Upload output image to Supabase Storage
       if (finalPrediction.output) {
         const outputFilename = `${finalPrediction.id}_out_${Date.now()}.png`;
-        //console.log('Uploading output image to storage:', outputFilename);
         const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
-        //console.log('Output image uploaded successfully:', outputStorageUrl);
         
-        // Update Service Usage with the stored output image URL
         if (newServiceUsageId) {
-          //console.log('Updating service usage with output URL...');
           await updateServiceUsage({
             id: newServiceUsageId,
             outputImageUrl: outputStorageUrl,
           });
-          //console.log('Service usage updated successfully');
         }
       }
     } catch (err) {
-      //console.error('Upscale error:', err);
+      console.error('Upscale error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -155,10 +151,17 @@ export default function Upscale() {
         <ErrorMessage message={error} />
 
         {preview && (
-          <UpscaleButton
-            onClick={handleUpscale}
-            isLoading={isLoading}
-          />
+          <>
+            <UpscaleButton
+              onClick={handleUpscale}
+              isLoading={isLoading}
+            />
+            {showMessage && (
+              <div className="mt-4">
+                <TokenMessage message={message} />
+              </div>
+            )}
+          </>
         )}
 
         <UpscaledImage prediction={prediction} />

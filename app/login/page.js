@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, supabase } from '@/utils/supabase';
 
@@ -11,13 +11,17 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo');
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      //console.log('Login page auth state changed:', event);
       if (event === 'SIGNED_IN' && session) {
-        //console.log('User signed in, redirecting to home...');
-        router.push('/');
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          router.push('/');
+        }
         router.refresh();
       }
     });
@@ -25,20 +29,18 @@ export default function Login() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [router]);
+  }, [router, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    //console.log('Attempting login with email:', email);
 
     try {
       if (!email || !password) {
         throw new Error('Please enter both email and password');
       }
 
-      //console.log('Calling signIn function...');
       await signIn(email, password);
       // The redirect will be handled by the auth state change listener
     } catch (err) {
@@ -109,7 +111,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* LoginButtons */}
             <div
               id="loginButtons"
               className="space-y-4 w-full flex flex-col items-center"
@@ -133,6 +134,5 @@ export default function Login() {
         </form>
       </div>
     </div>
-
   );
 }

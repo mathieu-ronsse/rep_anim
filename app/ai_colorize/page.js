@@ -1,16 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Breadcrumb from "@/components/Breadcrumb";
 import ImageUploader from '@/app/ai_upscale/components/ImageUploader';
 import ImagePreviewWithClear from '@/app/ai_upscale/components/ImagePreviewWithClear';
 import ColorizedImage from './components/ColorizedImage';
 import ColorizeButton from './components/ColorizeButton';
-import ErrorMessage from '@/app/ai_upscale/components/ErrorMessage';
+import ErrorMessage from '@/components/ErrorMessage';
+import TokenMessage from '@/components/TokenMessage';
+import { useTokenCheck } from '@/hooks/useTokenCheck';
 import { validateImageFile, readImageFile } from './utils/imageProcessing';
 import { waitForPrediction } from './utils/predictionPolling';
 import { logServiceUsage, updateServiceUsage } from "@/utils/supabase";
 import { uploadToStorage } from '@/utils/storageUtils';
+
+const REQUIRED_TOKENS = 2; // Colorize requires 2 tokens
 
 const breadcrumbItems = [
   { href: '/', label: 'Home' },
@@ -23,6 +28,8 @@ export default function Colorize() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [serviceUsageId, setServiceUsageId] = useState(null);
+  const { checkTokens, showMessage, message, setShowMessage } = useTokenCheck();
+  const router = useRouter();
 
   const handleImageSelect = async (file) => {
     const validation = validateImageFile(file);
@@ -45,20 +52,23 @@ export default function Colorize() {
     setPreview(null);
     setPrediction(null);
     setError(null);
+    setShowMessage(false);
   };
 
   const handleColorize = async () => {
     if (!preview) return;
     
-    setIsLoading(true);
-    setError(null);
-    let newServiceUsageId = null;
-
     try {
-      console.log('Starting colorize process...');
-      
-      // Call Replicate API
-      //console.log('Calling Replicate colorize API...');
+      // Check tokens first
+      const canProceed = await checkTokens(REQUIRED_TOKENS);
+      if (!canProceed) {
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      let newServiceUsageId = null;
+
       const response = await fetch('/api/colorize', {
         method: 'POST',
         headers: {
@@ -69,22 +79,17 @@ export default function Colorize() {
         }),
       });
 
-      let initialPrediction = await response.json();
       if (!response.ok) {
-        throw new Error(initialPrediction.detail);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to colorize image');
       }
-      
-      //console.log('Initial prediction received:', initialPrediction);
+
+      let initialPrediction = await response.json();
       setPrediction(initialPrediction);
 
-      // Upload input image to Supabase Storage
       const inputFilename = `${initialPrediction.id}_in_${Date.now()}.png`;
-      //console.log('Uploading input image to storage:', inputFilename);
       const inputStorageUrl = await uploadToStorage(preview, inputFilename);
-      //console.log('Input image uploaded successfully:', storedInputUrl);
 
-      // Log initial service usage
-      //console.log('Logging initial service usage...');
       const serviceUsage = await logServiceUsage({
         serviceName: 'colorize',
         inputImageUrl: inputStorageUrl,
@@ -94,82 +99,27 @@ export default function Colorize() {
       if (serviceUsage?.[0]?.id) {
         newServiceUsageId = serviceUsage[0].id;
         setServiceUsageId(serviceUsage[0].id);
-        console.log('Service usage logged successfully:', newServiceUsageId);
-      } else {
-        console.error('Failed to get service usage ID');
       }
 
-      // Wait for prediction and get final result
-      console.log('Waiting for prediction completion...');
       const finalPrediction = await waitForPrediction(initialPrediction, setPrediction);
-      console.log('Final prediction received:', finalPrediction);
       
-      // Upload output image to Supabase Storage
       if (finalPrediction.output) {
         const outputFilename = `${finalPrediction.id}_out_${Date.now()}.png`;
-        console.log('Uploading output image to storage:', outputFilename);
         const outputStorageUrl = await uploadToStorage(finalPrediction.output, outputFilename);
-        console.log('Output image uploaded successfully:', outputStorageUrl);
         
-        // Update Service Usage with the stored output image URL
         if (newServiceUsageId) {
-          console.log('Updating service usage with output URL...');
           await updateServiceUsage({
             id: newServiceUsageId,
             outputImageUrl: outputStorageUrl,
           });
-          console.log('Service usage updated successfully');
         }
       }
-      /*
-      // Log service usage immediately
-      const serviceUsage = await logServiceUsage({
-        serviceName: 'colorize',
-        inputImageUrl: preview
-      });
-      
-      if (serviceUsage?.[0]?.id) {
-        setServiceUsageId(serviceUsage[0].id);
-      }
-
-      const response = await fetch('/api/colorize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageUrl: preview
-        }),
-      });
-
-      let prediction = await response.json();
-      if (!response.ok) {
-        throw new Error(prediction.detail);
-      }
-      
-      setPrediction(prediction);
-
-      console.log("setPrediction done, now await :" + JSON.stringify(prediction, null, 2));
-      
-      await waitForPrediction(prediction, setPrediction);
-
-      console.log("waitForPrediction done :" + JSON.stringify(prediction, null, 2));
-      
-      // Update service usage with output URL
-      if (serviceUsageId && prediction.output) {
-        await updateServiceUsage({
-          id: serviceUsageId,
-          outputImageUrl: prediction.output
-        });
-      }
-        */
     } catch (err) {
-      console.error('Upscale error:', err);
+      console.error('Colorize error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-    
   };
 
   return (
@@ -193,10 +143,17 @@ export default function Colorize() {
         <ErrorMessage message={error} />
 
         {preview && (
-          <ColorizeButton
-            onClick={handleColorize}
-            isLoading={isLoading}
-          />
+          <>
+            <ColorizeButton
+              onClick={handleColorize}
+              isLoading={isLoading}
+            />
+            {showMessage && (
+              <div className="mt-4">
+                <TokenMessage message={message} />
+              </div>
+            )}
+          </>
         )}
 
         <ColorizedImage prediction={prediction} />
